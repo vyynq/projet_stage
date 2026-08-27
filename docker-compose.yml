@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airbnb_user
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: airbnb_menage
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - uploads_data:/app/app/uploads
+
+volumes:
+  db_data:
+  uploads_data:

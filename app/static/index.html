@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Airbnb Menage</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Airbnb Menage</h1>
+        <p>Gestion securisee des logements, reservations et missions de menage</p>
+      </div>
+      <div class="session">
+        <span id="sessionLabel">Non connecte</span>
+        <button id="logoutBtn" class="ghost" type="button">Deconnexion</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel auth-panel" id="authPanel">
+        <div class="tabs">
+          <button class="tab active" data-auth-tab="login" type="button">Connexion</button>
+          <button class="tab" data-auth-tab="register" type="button">Inscription</button>
+        </div>
+
+        <form id="loginForm" class="stack">
+          <label>Email <input name="email" type="email" required autocomplete="username"></label>
+          <label>Mot de passe <input name="password" type="password" required autocomplete="current-password"></label>
+          <button type="submit">Se connecter</button>
+        </form>
+
+        <form id="registerForm" class="stack hidden">
+          <label>Email <input name="email" type="email" required autocomplete="username"></label>
+          <label>Mot de passe <input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+          <label>Role
+            <select name="role">
+              <option value="proprietaire">Proprietaire</option>
+              <option value="admin">Administrateur initial</option>
+            </select>
+          </label>
+          <button type="submit">Creer le compte</button>
+        </form>
+      </section>
+
+      <section class="workspace hidden" id="workspace">
+        <nav class="nav">
+          <button class="nav-btn active" data-view="dashboard" type="button">Dashboard</button>
+          <button class="nav-btn" data-view="logements" type="button">Logements</button>
+          <button class="nav-btn" data-view="reservations" type="button">Reservations</button>
+          <button class="nav-btn" data-view="missions" type="button">Missions</button>
+          <button class="nav-btn" data-view="users" type="button">Utilisateurs</button>
+        </nav>
+
+        <section class="view" id="dashboardView">
+          <div class="metrics" id="metrics"></div>
+        </section>
+
+        <section class="view hidden" id="logementsView">
+          <div class="split">
+            <form id="logementForm" class="panel stack">
+              <h2>Nouveau logement</h2>
+              <label>Adresse <input name="adresse" required minlength="3"></label>
+              <label>Code d'acces <input name="code_acces" autocomplete="off"></label>
+              <button type="submit">Ajouter</button>
+            </form>
+            <div class="panel">
+              <h2>Logements</h2>
+              <div id="logementsList" class="list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="reservationsView">
+          <div class="split">
+            <form id="reservationForm" class="panel stack">
+              <h2>Nouvelle reservation</h2>
+              <label>Logement <select name="logement_id" required></select></label>
+              <label>Arrivee <input name="date_arrivee" type="datetime-local" required></label>
+              <label>Depart <input name="date_depart" type="datetime-local" required></label>
+              <label>Voyageur <input name="voyageur_nom" required></label>
+              <label>Contact <input name="voyageur_contact"></label>
+              <label>Source
+                <select name="source">
+                  <option value="manuel">Manuel</option>
+                  <option value="airbnb">Airbnb</option>
+                  <option value="booking">Booking</option>
+                  <option value="vrbo">Vrbo</option>
+                </select>
+              </label>
+              <button type="submit">Ajouter</button>
+            </form>
+            <form id="reservationImportForm" class="panel stack">
+              <h2>Import CSV</h2>
+              <label>Logement <select name="logement_id" required></select></label>
+              <label>Fichier CSV <input name="file" type="file" accept=".csv,text/csv" required></label>
+              <button type="submit">Importer</button>
+              <p class="hint">Colonnes: date_arrivee, date_depart, voyageur_nom, voyageur_contact</p>
+            </form>
+            <form id="icalImportForm" class="panel stack">
+              <h2>Import calendrier</h2>
+              <label>Logement <select name="logement_id" required></select></label>
+              <label>Plateforme
+                <select name="source">
+                  <option value="airbnb">Airbnb</option>
+                  <option value="booking">Booking</option>
+                  <option value="vrbo">Vrbo</option>
+                  <option value="calendrier">Autre calendrier</option>
+                </select>
+              </label>
+              <label>URL iCal <input name="calendar_url" placeholder="https://..."></label>
+              <label>Ou fichier .ics <input name="file" type="file" accept=".ics,text/calendar"></label>
+              <button type="submit">Synchroniser</button>
+              <p class="hint">Chaque evenement cree une reservation et une mission de menage.</p>
+            </form>
+          </div>
+          <div class="panel">
+            <h2>Reservations</h2>
+            <div id="reservationsList" class="list"></div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="missionsView">
+          <div class="panel">
+            <h2>Missions</h2>
+            <div id="missionsList" class="list"></div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="usersView">
+          <form id="userForm" class="panel stack">
+            <h2>Creation utilisateur admin</h2>
+            <label>Email <input name="email" type="email" required></label>
+            <label>Mot de passe <input name="password" type="password" required minlength="8"></label>
+            <label>Role
+              <select name="role">
+                <option value="responsable_conciergerie">Responsable conciergerie</option>
+                <option value="agent_menage">Agent de menage</option>
+                <option value="proprietaire">Proprietaire</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </label>
+            <button type="submit">Creer</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
