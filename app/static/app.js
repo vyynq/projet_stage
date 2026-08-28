@@ -217,7 +217,8 @@ function setView(name) {
 function bindForms() {
   $("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = new URLSearchParams({ username: form.get("email"), password: form.get("password") });
     try {
       const data = await api("/auth/login", {
@@ -235,7 +236,8 @@ function bindForms() {
 
   $("#registerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api("/auth/register", {
         method: "POST",
@@ -251,10 +253,11 @@ function bindForms() {
 
   $("#logementForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api("/logements", { method: "POST", body: JSON.stringify(Object.fromEntries(form)) });
-      event.currentTarget.reset();
+      formElement.reset();
       await refreshAll();
       toast("Logement ajoute");
     } catch (error) {
@@ -264,10 +267,11 @@ function bindForms() {
 
   $("#reservationForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const formElement = event.currentTarget;
+    const values = Object.fromEntries(new FormData(formElement));
     try {
       await api("/reservations", { method: "POST", body: JSON.stringify(values) });
-      event.currentTarget.reset();
+      formElement.reset();
       await refreshAll();
       toast("Reservation ajoutee et mission creee");
     } catch (error) {
@@ -277,7 +281,8 @@ function bindForms() {
 
   $("#reservationImportForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const logementId = form.get("logement_id");
     form.delete("logement_id");
     try {
@@ -285,7 +290,7 @@ function bindForms() {
         method: "POST",
         body: form,
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await refreshAll();
       toast("Reservations importees");
     } catch (error) {
@@ -295,7 +300,8 @@ function bindForms() {
 
   $("#icalImportForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     if (!form.get("calendar_url") && !(form.get("file") instanceof File && form.get("file").size > 0)) {
       toast("Ajoute une URL iCal ou un fichier .ics");
       return;
@@ -305,7 +311,7 @@ function bindForms() {
         method: "POST",
         body: form,
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await refreshAll();
       toast("Calendrier synchronise");
     } catch (error) {
@@ -315,12 +321,13 @@ function bindForms() {
 
   $("#userForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const formElement = event.currentTarget;
     try {
       await api("/auth/users", {
         method: "POST",
-        body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),
+        body: JSON.stringify(Object.fromEntries(new FormData(formElement))),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await refreshAll();
       toast("Utilisateur cree");
     } catch (error) {
