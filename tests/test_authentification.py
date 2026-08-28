@@ -3,25 +3,12 @@ def test_premier_utilisateur_peut_devenir_admin(inscrire):
 
     assert response.status_code == 201, response.text
     assert response.json()["role"] == "admin"
-    assert response.json()["email_verified"] is False
+    assert response.json()["email_verified"] is True
 
 
-def test_connexion_refusee_tant_que_email_pas_verifie(client, inscrire):
+def test_connexion_possible_apres_inscription(client, inscrire):
     assert inscrire("admin@test.com", "admin").status_code == 201
 
-    response = client.post(
-        "/auth/login",
-        data={"username": "admin@test.com", "password": "motdepasse123"},
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Email non verifie. Entrez le code recu par email."
-
-
-def test_code_email_valide_permet_ensuite_la_connexion(client, inscrire, verifier_email):
-    assert inscrire("admin@test.com", "admin").status_code == 201
-
-    verifier_email("admin@test.com")
     response = client.post(
         "/auth/login",
         data={"username": "admin@test.com", "password": "motdepasse123"},
@@ -31,46 +18,31 @@ def test_code_email_valide_permet_ensuite_la_connexion(client, inscrire, verifie
     assert "access_token" in response.json()
 
 
-def test_code_email_invalide_est_refuse(client, inscrire):
+def test_inscription_refuse_un_email_deja_utilise(inscrire):
     assert inscrire("admin@test.com", "admin").status_code == 201
 
+    response = inscrire("admin@test.com", "admin")
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Cet email est deja utilise"
+
+
+def test_verification_email_desactivee_pour_la_demo(client, inscrire):
+    assert inscrire("admin@test.com", "admin").status_code == 201
+
+    response = client.post("/auth/request-email-code", json={"email": "admin@test.com"})
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Verification email desactivee pour le moment"
+
+
+def test_email_insensible_aux_majuscules_pour_verification_et_connexion(client, inscrire, verifier_email):
+    assert inscrire("Admin@Test.com", "admin").status_code == 201
     response = client.post(
-        "/auth/verify-email",
-        json={"email": "admin@test.com", "code": "000000"},
+        "/auth/login",
+        data={"username": "ADMIN@test.com", "password": "motdepasse123"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Code de verification invalide"
-
-
-def test_renvoi_code_email_repond_sans_reveler_si_le_compte_existe(client, inscrire):
-    assert inscrire("admin@test.com", "admin").status_code == 201
-
-    existing_response = client.post("/auth/request-email-code", json={"email": "admin@test.com"})
-    unknown_response = client.post("/auth/request-email-code", json={"email": "inconnu@test.com"})
-
-    assert existing_response.status_code == 200
-    assert unknown_response.status_code == 200
-    assert existing_response.json() == unknown_response.json()
-
-
-def test_echec_envoi_email_ne_bloque_pas_l_adresse(client, inscrire, monkeypatch):
-    import app.routers.auth as auth_router
-
-    def _raise_delivery_error(email: str, code: str):
-        raise RuntimeError("SMTP indisponible")
-
-    monkeypatch.setattr(auth_router, "send_verification_email", _raise_delivery_error)
-
-    failed_response = inscrire("admin@test.com", "admin")
-
-    assert failed_response.status_code == 503
-    assert failed_response.json()["detail"] == "Envoi du code email impossible. Verifiez la configuration SMTP."
-
-    monkeypatch.undo()
-    retry_response = inscrire("admin@test.com", "admin")
-
-    assert retry_response.status_code == 201, retry_response.text
+    assert response.status_code == 200, response.text
 
 
 def test_inscription_publique_refuse_un_deuxieme_admin(inscrire):

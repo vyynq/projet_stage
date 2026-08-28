@@ -23,7 +23,6 @@
         <div class="tabs">
           <button class="tab active" data-auth-tab="login" type="button">Connexion</button>
           <button class="tab" data-auth-tab="register" type="button">Inscription</button>
-          <button class="tab" data-auth-tab="verify" type="button">Code email</button>
         </div>
 
         <form id="loginForm" class="stack">
@@ -44,12 +43,6 @@
           <button type="submit">Creer le compte</button>
         </form>
 
-        <form id="verifyEmailForm" class="stack hidden">
-          <label>Email <input name="email" type="email" required autocomplete="username"></label>
-          <label>Code recu par email <input name="code" inputmode="numeric" required minlength="6" maxlength="6"></label>
-          <button type="submit">Verifier l'email</button>
-          <button id="resendCodeBtn" class="ghost" type="button">Renvoyer un code</button>
-        </form>
       </section>
 
       <section class="workspace hidden" id="workspace">
