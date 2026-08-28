@@ -54,6 +54,25 @@ def test_renvoi_code_email_repond_sans_reveler_si_le_compte_existe(client, inscr
     assert existing_response.json() == unknown_response.json()
 
 
+def test_echec_envoi_email_ne_bloque_pas_l_adresse(client, inscrire, monkeypatch):
+    import app.routers.auth as auth_router
+
+    def _raise_delivery_error(email: str, code: str):
+        raise RuntimeError("SMTP indisponible")
+
+    monkeypatch.setattr(auth_router, "send_verification_email", _raise_delivery_error)
+
+    failed_response = inscrire("admin@test.com", "admin")
+
+    assert failed_response.status_code == 503
+    assert failed_response.json()["detail"] == "Envoi du code email impossible. Verifiez la configuration SMTP."
+
+    monkeypatch.undo()
+    retry_response = inscrire("admin@test.com", "admin")
+
+    assert retry_response.status_code == 201, retry_response.text
+
+
 def test_inscription_publique_refuse_un_deuxieme_admin(inscrire):
     assert inscrire("admin@test.com", "admin").status_code == 201
 

@@ -44,6 +44,13 @@ def _set_and_send_email_code(user: User, db: Session):
     send_verification_email(user.email, code)
 
 
+def _email_delivery_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Envoi du code email impossible. Verifiez la configuration SMTP.",
+    )
+
+
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     user_count = db.query(User).count()
@@ -65,7 +72,13 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    _set_and_send_email_code(user, db)
+    try:
+        _set_and_send_email_code(user, db)
+    except Exception as exc:
+        db.rollback()
+        db.delete(user)
+        db.commit()
+        raise _email_delivery_error() from exc
     db.refresh(user)
     return UserOut.from_orm_user(user)
 
@@ -115,7 +128,11 @@ def request_email_code(payload: EmailVerificationRequest, db: Session = Depends(
     if user.email_verified_at is not None:
         return {"message": "Email deja verifie"}
 
-    _set_and_send_email_code(user, db)
+    try:
+        _set_and_send_email_code(user, db)
+    except Exception as exc:
+        db.rollback()
+        raise _email_delivery_error() from exc
     return {"message": "Si le compte existe, un code de verification a ete envoye"}
 
 
