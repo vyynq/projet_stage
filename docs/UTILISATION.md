@@ -10,13 +10,14 @@
 ## Parcours type
 
 1. Un administrateur cree les comptes des responsables et agents.
-2. Un proprietaire ou administrateur cree un logement avec adresse et code d'acces.
-3. Une reservation est ajoutee manuellement ou importee par CSV.
-4. Une reservation peut aussi venir d'un calendrier Airbnb, Booking, Vrbo ou autre via iCal.
-5. L'application cree automatiquement une mission de menage a la date de depart.
-6. Un admin ou responsable assigne la mission a un agent.
-7. L'agent consulte la mission, coche la checklist et signale un incident avec photo si besoin.
-8. Quand la mission passe en `termine`, le logement repasse au statut `pret`.
+2. Un utilisateur inscrit publiquement valide son email avec le code recu.
+3. Un proprietaire ou administrateur cree un logement avec adresse et code d'acces.
+4. Une reservation est ajoutee manuellement ou importee par CSV.
+5. Une reservation peut aussi venir d'un calendrier Airbnb, Booking, Vrbo ou autre via iCal.
+6. L'application cree automatiquement une mission de menage a la date de depart.
+7. Un admin ou responsable assigne la mission a un agent.
+8. L'agent consulte la mission, coche la checklist et signale un incident avec photo si besoin.
+9. Quand la mission passe en `termine`, le logement repasse au statut `pret`.
 
 ## Interface web
 

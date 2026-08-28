@@ -40,6 +40,7 @@ Si `python3.10` n'est pas dans le PATH sur macOS, utiliser :
 
 - Interface web servie par FastAPI.
 - Authentification email/mot de passe, mots de passe hashes, JWT.
+- Verification email par code a 6 chiffres avant connexion pour les inscriptions publiques.
 - Roles : admin, proprietaire, responsable conciergerie, agent_menage.
 - Creation d'utilisateurs par admin.
 - Creation, consultation, modification et suppression de logements.
@@ -77,7 +78,7 @@ Chaque evenement importe cree automatiquement une reservation et une mission de 
 .venv/bin/python -m pytest -q
 ```
 
-Derniere verification locale : `2 passed`.
+Derniere verification locale : `37 passed`.
 
 ## Limites restantes
 

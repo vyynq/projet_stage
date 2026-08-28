@@ -1,18 +1,24 @@
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_airbnb_menage.db"
+TEST_RUNTIME_DIR = Path(tempfile.gettempdir()) / f"airbnb_menage_tests_{os.getpid()}"
+TEST_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_RUNTIME_DIR / 'test_airbnb_menage.db'}"
 os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["FIELD_ENCRYPTION_KEY"] = "test-field-encryption-key"
 os.environ["UPLOAD_DIR"] = str(Path("test_uploads").resolve())
 os.environ["LOGIN_WINDOW_SECONDS"] = "60"
 os.environ["LOGIN_MAX_ATTEMPTS"] = "5"
+os.environ["EMAIL_DELIVERY_MODE"] = "test"
 
 from app.database import Base, engine
+from app.email import get_last_verification_code
 from app.main import app
 from app.security import _login_attempts
 
@@ -20,7 +26,9 @@ from app.security import _login_attempts
 @pytest.fixture(autouse=True)
 def base_de_donnees_propre():
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
     Base.metadata.create_all(bind=engine)
+    engine.dispose()
     _login_attempts.clear()
 
     upload_dir = Path(os.environ["UPLOAD_DIR"])
@@ -31,12 +39,14 @@ def base_de_donnees_propre():
     yield
 
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
     _login_attempts.clear()
 
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def client(base_de_donnees_propre):
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def entetes_auth(token: str) -> dict[str, str]:
@@ -66,10 +76,31 @@ def connecter(client):
             "/auth/login",
             data={"username": email, "password": password},
         )
+        if response.status_code == 403 and "Email non verifie" in response.text:
+            code = get_last_verification_code(email)
+            assert code is not None
+            verify_response = client.post("/auth/verify-email", json={"email": email, "code": code})
+            assert verify_response.status_code == 200, verify_response.text
+            response = client.post(
+                "/auth/login",
+                data={"username": email, "password": password},
+            )
         assert response.status_code == 200, response.text
         return response.json()["access_token"]
 
     return _connecter
+
+
+@pytest.fixture
+def verifier_email(client):
+    def _verifier_email(email: str):
+        code = get_last_verification_code(email)
+        assert code is not None
+        response = client.post("/auth/verify-email", json={"email": email, "code": code})
+        assert response.status_code == 200, response.text
+        return response
+
+    return _verifier_email
 
 
 @pytest.fixture

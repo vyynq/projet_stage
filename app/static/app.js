@@ -241,7 +241,25 @@ function bindForms() {
         method: "POST",
         body: JSON.stringify(Object.fromEntries(form)),
       });
-      toast("Compte cree, vous pouvez vous connecter");
+      $("#verifyEmailForm").email.value = form.get("email");
+      $("[data-auth-tab='verify']").click();
+      toast("Compte cree, entrez le code recu par email");
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $("#verifyEmailForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      await api("/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify(Object.fromEntries(form)),
+      });
+      $("#loginForm").email.value = form.get("email");
+      $("[data-auth-tab='login']").click();
+      toast("Email verifie, vous pouvez vous connecter");
     } catch (error) {
       toast(error.message);
     }
@@ -336,6 +354,7 @@ function bindClicks() {
       $$(".tab").forEach((button) => button.classList.toggle("active", button === target));
       $("#loginForm").classList.toggle("hidden", target.dataset.authTab !== "login");
       $("#registerForm").classList.toggle("hidden", target.dataset.authTab !== "register");
+      $("#verifyEmailForm").classList.toggle("hidden", target.dataset.authTab !== "verify");
     }
 
     if (target.dataset.view) setView(target.dataset.view);
@@ -343,6 +362,23 @@ function bindClicks() {
     if (target.id === "logoutBtn") {
       clearSession();
       toast("Session fermee");
+    }
+
+    if (target.id === "resendCodeBtn") {
+      const email = $("#verifyEmailForm").email.value;
+      if (!email) {
+        toast("Entrez d'abord votre email");
+        return;
+      }
+      try {
+        await api("/auth/request-email-code", {
+          method: "POST",
+          body: JSON.stringify({ email }),
+        });
+        toast("Si le compte existe, un nouveau code a ete envoye");
+      } catch (error) {
+        toast(error.message);
+      }
     }
 
     if (target.dataset.code) {

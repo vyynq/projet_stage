@@ -21,6 +21,7 @@ UPLOAD_DIR=/app/app/uploads
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 LOGIN_WINDOW_SECONDS=60
 LOGIN_MAX_ATTEMPTS=5
+EMAIL_DELIVERY_MODE=console
 ```
 
 Pour generer les secrets :
@@ -40,6 +41,25 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
    - `CORS_ORIGINS`
 5. Deployer.
 6. Ouvrir l'URL Render et creer le premier compte admin.
+
+## Verification email
+
+Par defaut, `EMAIL_DELIVERY_MODE=console` affiche le code de verification dans les logs du service Render.
+C'est suffisant pour une demonstration ou un test.
+
+Pour envoyer le code par vrai email, configurer un service SMTP et ajouter ces variables dans Render :
+
+```text
+EMAIL_DELIVERY_MODE=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=compte@example.com
+SMTP_PASSWORD=mot_de_passe_smtp
+SMTP_FROM=no-reply@example.com
+SMTP_USE_TLS=true
+```
+
+Apres inscription, l'utilisateur doit entrer le code recu avant de pouvoir se connecter.
 
 Important : pour garder les photos apres redemarrage, ajouter un disque persistant ou passer a un stockage objet. Sans disque persistant, les uploads locaux peuvent etre perdus selon la plateforme.
 

@@ -35,6 +35,9 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(Enum(RoleEnum), nullable=False)
+    email_verified_at = Column(DateTime, nullable=True)
+    email_verification_code_hash = Column(String, nullable=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     logements = relationship("Logement", back_populates="proprietaire")

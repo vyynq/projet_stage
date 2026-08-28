@@ -11,7 +11,7 @@ Ce dossier contient les tests automatises de l'application.
 ## Organisation
 
 - `conftest.py` prepare une base SQLite de test et fournit des aides reutilisables : creer un admin, creer un utilisateur, se connecter, creer un logement, creer une reservation.
-- `test_authentification.py` verifie l'inscription, la connexion, les roles et la limitation des tentatives de connexion.
+- `test_authentification.py` verifie l'inscription, la connexion, les roles, la validation email par code et la limitation des tentatives de connexion.
 - `test_logements.py` verifie la gestion des logements, la protection du code d'acces et l'isolation entre proprietaires.
 - `test_reservations.py` verifie les reservations manuelles, l'import CSV, l'import iCal et la creation automatique des missions de menage.
 - `test_missions.py` verifie l'assignation des missions, la checklist, les statuts et les incidents.

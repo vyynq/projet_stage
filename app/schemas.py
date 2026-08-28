@@ -12,10 +12,29 @@ class UserCreate(BaseModel):
     role: RoleEnum
 
 
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailVerificationConfirm(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
+
+
 class UserOut(BaseModel):
     id: str
     email: EmailStr
     role: RoleEnum
+    email_verified: bool = False
+
+    @classmethod
+    def from_orm_user(cls, user):
+        return cls(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            email_verified=user.email_verified_at is not None,
+        )
 
     class Config:
         from_attributes = True

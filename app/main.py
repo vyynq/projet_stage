@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import BASE_DIR, get_cors_origins, get_upload_dir
 from app.database import Base, engine
+from app.migrations import ensure_email_verification_columns
 from app.routers import auth, dashboard, logements, missions, reservations
 
 STATIC_DIR = BASE_DIR / "static"
@@ -12,6 +13,7 @@ UPLOADS_DIR = get_upload_dir()
 # En dev : cree les tables directement depuis les modeles.
 # En prod : remplacer par des migrations Alembic (alembic upgrade head).
 Base.metadata.create_all(bind=engine)
+ensure_email_verification_columns(engine)
 
 app = FastAPI(
     title="Airbnb Menage API",

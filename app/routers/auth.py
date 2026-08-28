@@ -1,12 +1,19 @@
+import hashlib
+import hmac
+import secrets
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine
 from app.dependencies import get_current_user, get_db, require_role
+from app.email import send_verification_email
 from app.models import RoleEnum, User
-from app.schemas import UserCreate, UserOut, Token
+from app.schemas import EmailVerificationConfirm, EmailVerificationRequest, UserCreate, UserOut, Token
 from app.security import (
+    SECRET_KEY,
     clear_failed_logins,
     create_access_token,
     hash_password,
@@ -16,6 +23,25 @@ from app.security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+EMAIL_CODE_EXPIRE_MINUTES = 10
+
+
+def _hash_email_code(email: str, code: str) -> str:
+    payload = f"{email.lower()}:{code}".encode("utf-8")
+    return hmac.new(SECRET_KEY.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _generate_email_code() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def _set_and_send_email_code(user: User, db: Session):
+    code = _generate_email_code()
+    user.email_verification_code_hash = _hash_email_code(user.email, code)
+    user.email_verification_expires_at = datetime.utcnow() + timedelta(minutes=EMAIL_CODE_EXPIRE_MINUTES)
+    db.commit()
+    send_verification_email(user.email, code)
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -39,7 +65,9 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    _set_and_send_email_code(user, db)
+    db.refresh(user)
+    return UserOut.from_orm_user(user)
 
 
 @router.post(
@@ -61,11 +89,12 @@ def create_user_by_admin(
         email=payload.email,
         password_hash=hash_password(payload.password),
         role=payload.role,
+        email_verified_at=datetime.utcnow(),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return UserOut.from_orm_user(user)
 
 
 @router.get(
@@ -74,7 +103,43 @@ def create_user_by_admin(
     dependencies=[Depends(require_role(RoleEnum.admin, RoleEnum.responsable_conciergerie))],
 )
 def list_users(db: Session = Depends(get_db)):
-    return db.query(User).order_by(User.created_at.desc()).all()
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return [UserOut.from_orm_user(user) for user in users]
+
+
+@router.post("/request-email-code")
+def request_email_code(payload: EmailVerificationRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        return {"message": "Si le compte existe, un code de verification a ete envoye"}
+    if user.email_verified_at is not None:
+        return {"message": "Email deja verifie"}
+
+    _set_and_send_email_code(user, db)
+    return {"message": "Si le compte existe, un code de verification a ete envoye"}
+
+
+@router.post("/verify-email")
+def verify_email(payload: EmailVerificationConfirm, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Code de verification invalide")
+    if user.email_verified_at is not None:
+        return {"message": "Email deja verifie"}
+    if not user.email_verification_code_hash or not user.email_verification_expires_at:
+        raise HTTPException(status_code=400, detail="Code de verification invalide")
+    if user.email_verification_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Code de verification expire")
+
+    expected = _hash_email_code(user.email, payload.code)
+    if not hmac.compare_digest(user.email_verification_code_hash, expected):
+        raise HTTPException(status_code=400, detail="Code de verification invalide")
+
+    user.email_verified_at = datetime.utcnow()
+    user.email_verification_code_hash = None
+    user.email_verification_expires_at = None
+    db.commit()
+    return {"message": "Email verifie"}
 
 
 @router.post("/login", response_model=Token)
@@ -94,6 +159,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect",
+        )
+    if user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email non verifie. Entrez le code recu par email.",
         )
 
     clear_failed_logins(identifier)
