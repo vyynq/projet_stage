@@ -225,6 +225,34 @@ textarea {
   flex-wrap: wrap;
 }
 
+.section-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.incident-list {
+  display: grid;
+  gap: 8px;
+  border-left: 3px solid var(--danger);
+  padding-left: 10px;
+}
+
+.incident {
+  background: #fff7f6;
+  border: 1px solid #f3b9b2;
+  border-radius: 7px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.incident a {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

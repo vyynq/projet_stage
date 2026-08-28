@@ -1,6 +1,7 @@
 const state = {
   token: localStorage.getItem("airbnb_menage_token") || "",
   email: localStorage.getItem("airbnb_menage_email") || "",
+  role: localStorage.getItem("airbnb_menage_role") || "",
   activeView: "dashboard",
   logements: [],
   reservations: [],
@@ -17,6 +18,50 @@ function toast(message) {
   node.classList.remove("hidden");
   window.clearTimeout(toast.timer);
   toast.timer = window.setTimeout(() => node.classList.add("hidden"), 4200);
+}
+
+function parseJwtPayload(token) {
+  try {
+    const payload = token.split(".")[1];
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return {};
+  }
+}
+
+function roleLabel(role) {
+  return {
+    admin: "Admin",
+    proprietaire: "Proprietaire",
+    responsable_conciergerie: "Responsable",
+    agent_menage: "Agent menage",
+  }[role] || "Utilisateur";
+}
+
+function canUseView(view) {
+  if (!state.token) return false;
+  if (state.role === "agent_menage") return ["dashboard", "missions"].includes(view);
+  if (state.role === "proprietaire") return ["dashboard", "logements", "reservations", "missions"].includes(view);
+  if (state.role === "responsable_conciergerie") return ["dashboard", "logements", "reservations", "missions"].includes(view);
+  return true;
+}
+
+function canAssignMissions() {
+  return ["admin", "responsable_conciergerie"].includes(state.role);
+}
+
+function canCreateUsers() {
+  return state.role === "admin";
+}
+
+function canEditChecklist() {
+  return ["admin", "responsable_conciergerie", "agent_menage"].includes(state.role);
+}
+
+function canReportIncidents() {
+  return state.role === "agent_menage";
 }
 
 async function api(path, options = {}) {
@@ -36,26 +81,46 @@ async function api(path, options = {}) {
 }
 
 function setSession(token, email) {
+  const payload = parseJwtPayload(token);
   state.token = token;
   state.email = email;
+  state.role = payload.role || "";
   localStorage.setItem("airbnb_menage_token", token);
   localStorage.setItem("airbnb_menage_email", email);
+  localStorage.setItem("airbnb_menage_role", state.role);
   renderSession();
 }
 
 function clearSession() {
   state.token = "";
   state.email = "";
+  state.role = "";
   localStorage.removeItem("airbnb_menage_token");
   localStorage.removeItem("airbnb_menage_email");
+  localStorage.removeItem("airbnb_menage_role");
   renderSession();
 }
 
 function renderSession() {
-  $("#sessionLabel").textContent = state.token ? state.email : "Non connecte";
+  if (state.token && !state.role) {
+    state.role = parseJwtPayload(state.token).role || "";
+  }
+  $("#sessionLabel").textContent = state.token ? `${state.email} - ${roleLabel(state.role)}` : "Non connecte";
   $("#authPanel").classList.toggle("hidden", Boolean(state.token));
   $("#workspace").classList.toggle("hidden", !state.token);
   $("#logoutBtn").classList.toggle("hidden", !state.token);
+  applyRoleNavigation();
+}
+
+function applyRoleNavigation() {
+  $$(".nav-btn").forEach((button) => {
+    button.classList.toggle("hidden", !canUseView(button.dataset.view));
+  });
+
+  if (state.token && !canUseView(state.activeView)) {
+    const firstAvailable = $$(".nav-btn").find((button) => !button.classList.contains("hidden"));
+    if (firstAvailable) state.activeView = firstAvailable.dataset.view;
+  }
 }
 
 function fmtDate(value) {
@@ -78,6 +143,7 @@ function statusBadge(statut) {
 
 async function refreshAll() {
   if (!state.token) return;
+  applyRoleNavigation();
   const loaders = [
     api("/dashboard").then((data) => renderDashboard(data)).catch(() => renderDashboard(null)),
     api("/logements").then((data) => { state.logements = data; renderLogements(); }).catch(() => { state.logements = []; renderLogements(); }),
@@ -165,49 +231,89 @@ async function renderChecklist(mission) {
   }
 }
 
+async function renderIncidents(mission) {
+  const container = $(`[data-incidents-for="${mission.id}"]`);
+  if (!container) return;
+  try {
+    const incidents = await api(`/missions/${mission.id}/incidents`);
+    container.innerHTML = incidents.length
+      ? `
+        <div class="incident-list">
+          <div class="section-title">Incidents signales</div>
+          ${incidents.map((incident) => `
+            <article class="incident">
+              <div>${incident.description}</div>
+              <div class="meta">${fmtDate(incident.created_at)}</div>
+              ${incident.photo_url ? `<a href="${incident.photo_url}" target="_blank" rel="noreferrer">Voir la photo</a>` : ""}
+            </article>
+          `).join("")}
+        </div>
+      `
+      : "";
+  } catch (error) {
+    container.innerHTML = `<p class="hint">${error.message}</p>`;
+  }
+}
+
 function renderMissions() {
   const agents = state.users.filter((user) => user.role === "agent_menage");
   $("#missionsList").innerHTML = state.missions.length
     ? state.missions.map((mission) => {
       const logement = state.logements.find((item) => item.id === mission.logement_id);
+      const agent = state.users.find((user) => user.id === mission.agent_id);
+      const assignControls = canAssignMissions() ? `
+        <select data-agent-for="${mission.id}">
+          <option value="">Agent</option>
+          ${optionList(agents, mission.agent_id)}
+        </select>
+        <button type="button" data-assign="${mission.id}">Assigner</button>
+      ` : "";
+      const statusControls = canEditChecklist() ? `
+        <select data-status-for="${mission.id}">
+          <option value="a_faire" ${mission.statut === "a_faire" ? "selected" : ""}>A faire</option>
+          <option value="en_cours" ${mission.statut === "en_cours" ? "selected" : ""}>En cours</option>
+          <option value="termine" ${mission.statut === "termine" ? "selected" : ""}>Termine</option>
+          <option value="probleme_signale" ${mission.statut === "probleme_signale" ? "selected" : ""}>Probleme signale</option>
+        </select>
+        <button type="button" data-status="${mission.id}">Changer statut</button>
+      ` : "";
+      const incidentForm = canReportIncidents() ? `
+        <form class="stack" data-incident-form="${mission.id}">
+          <textarea name="description" placeholder="Incident ou commentaire photo" required minlength="3"></textarea>
+          <input name="photo" type="file" accept="image/png,image/jpeg,image/webp">
+          <button type="submit">Signaler incident</button>
+        </form>
+      ` : "";
       return `
         <article class="item">
           <div class="item-head">
             <div>
               <div class="item-title">${logement?.adresse || mission.logement_id}</div>
               <div class="meta">Prevue: ${fmtDate(mission.date_prevue)}</div>
-              <div class="meta">Agent: ${mission.agent_id || "Non assigne"}</div>
+              <div class="meta">Agent: ${agent?.email || mission.agent_id || "Non assigne"}</div>
             </div>
             ${statusBadge(mission.statut)}
           </div>
           <div class="actions">
-            <select data-agent-for="${mission.id}">
-              <option value="">Agent</option>
-              ${optionList(agents, mission.agent_id)}
-            </select>
-            <button type="button" data-assign="${mission.id}">Assigner</button>
-            <select data-status-for="${mission.id}">
-              <option value="a_faire">A faire</option>
-              <option value="en_cours">En cours</option>
-              <option value="termine">Termine</option>
-              <option value="probleme_signale">Probleme signale</option>
-            </select>
-            <button type="button" data-status="${mission.id}">Changer statut</button>
+            ${assignControls}
+            ${statusControls}
           </div>
           <div data-checklist-for="${mission.id}" class="stack"></div>
-          <form class="stack" data-incident-form="${mission.id}">
-            <textarea name="description" placeholder="Incident ou commentaire photo" required minlength="3"></textarea>
-            <input name="photo" type="file" accept="image/png,image/jpeg,image/webp">
-            <button type="submit">Signaler incident</button>
-          </form>
+          <div data-incidents-for="${mission.id}" class="stack"></div>
+          ${incidentForm}
         </article>
       `;
     }).join("")
     : `<p class="hint">Aucune mission accessible.</p>`;
   state.missions.forEach(renderChecklist);
+  state.missions.forEach(renderIncidents);
 }
 
 function setView(name) {
+  if (!canUseView(name)) {
+    toast("Vue non disponible pour ce role");
+    return;
+  }
   state.activeView = name;
   $$(".nav-btn").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.add("hidden"));
